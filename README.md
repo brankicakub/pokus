@@ -47,3 +47,8 @@ Notes
 - `output/` and `.venv/` are ignored by `.gitignore`.
 - If `src/` is missing, the package (`plotcsv`) may need restoring from earlier commits or re-creation.
 
+Fortran version
+---------------
+
+There is a minimal Fortran90 implementation in the `fortran/` folder. See [fortran/README.md](fortran/README.md) for build and run instructions.
+
