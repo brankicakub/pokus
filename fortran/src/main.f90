@@ -9,6 +9,8 @@ program csv_plotter
   integer :: ncols, i
   character(len=256) :: answer
   integer :: xcol, ycol
+  logical :: auto
+  character(len=64) :: arg2
 
   call get_command_argument(1, filename)
   if (len_trim(filename) == 0) then
@@ -29,18 +31,33 @@ program csv_plotter
   end if
 
   call split_csv_header(header_line, names, ncols)
+  call get_command_argument(2, arg2)
+  auto = .false.
+  if (len_trim(arg2) > 0) then
+    if (trim(arg2) == '--auto' .or. trim(arg2) == '-a') auto = .true.
+  end if
   write(*,*) 'Found columns:'
   do i=1,ncols
     write(*,'(I3,2X,A)') i, trim(names(i))
   end do
 
-  write(*,*) 'Enter X column (name or index):'
-  read(*,'(A)') answer
-  call select_column(answer, names, ncols, xcol)
+  if (auto) then
+    xcol = 1
+    if (ncols >= 2) then
+      ycol = 2
+    else
+      ycol = 1
+    end if
+    write(*,'(A,I0,A,I0)') 'Auto mode: using columns ', xcol, ' (X) and ', ycol, ' (Y)'
+  else
+    write(*,*) 'Enter X column (name or index):'
+    read(*,'(A)') answer
+    call select_column(answer, names, ncols, xcol)
 
-  write(*,*) 'Enter Y column (name or index):'
-  read(*,'(A)') answer
-  call select_column(answer, names, ncols, ycol)
+    write(*,*) 'Enter Y column (name or index):'
+    read(*,'(A)') answer
+    call select_column(answer, names, ncols, ycol)
+  end if
 
   call write_two_column_data(10, xcol, ycol)
 
@@ -141,18 +158,25 @@ contains
     integer :: i, start, pos, n
     real :: xv, yv
     integer :: outu
+    integer :: row
+    logical :: okx, oky
+    call execute_command_line('mkdir -p output')
     open(unit=20, file='output/tmpdata.dat', status='replace', action='write', iostat=ios)
     if (ios /= 0) then
       write(*,'(A)') 'Error: cannot open output/tmpdata.dat for writing'
       stop 1
     end if
+    row = 0
     do
       read(unit_in,'(A)',iostat=ios) line
       if (ios /= 0) exit
-      call get_token(line, xcol, xv, ok)
-      if (.not. ok) cycle
-      call get_token(line, ycol, yv, ok)
-      if (.not. ok) cycle
+      row = row + 1
+      call get_token(line, xcol, xv, okx)
+      call get_token(line, ycol, yv, oky)
+      if (.not. oky) cycle
+      if (.not. okx) then
+        xv = real(row)
+      end if
       write(20,'(F12.6,1X,F12.6)') xv, yv
     end do
     close(20)
