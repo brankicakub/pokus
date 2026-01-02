@@ -36,7 +36,14 @@ git remote add origin <URL>
 git push -u origin main
 ```
 
+
+Documentation
+-------------
+
+More detailed documentation is available in the `docs/` folder: see [docs/overview.md](docs/overview.md).
+
 Notes
 -----
 - `output/` and `.venv/` are ignored by `.gitignore`.
 - If `src/` is missing, the package (`plotcsv`) may need restoring from earlier commits or re-creation.
+
