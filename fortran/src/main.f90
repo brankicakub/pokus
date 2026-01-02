@@ -1,14 +1,26 @@
+! csv_plotter: simple CSV -> two-column data writer and gnuplot script generator
+! Usage:
+!   csv_plotter <csv-file> [--auto]
+! - If `--auto` is supplied the program runs non-interactively: X=col1, Y=col2.
+! - Otherwise it prompts for X and Y column names or indices.
+! The program writes `output/tmpdata.dat` (two numeric columns) and `output/plot.plt` (gnuplot script).
 program csv_plotter
   implicit none
   character(len=512) :: filename
   integer :: iargc
+  ! Header line read from CSV
   character(len=2048) :: header_line
+  ! Generic flags and temporaries
   logical :: ok
+  ! Header tokens and number of columns
   character(len=:), allocatable :: header
   character(len=256), allocatable :: names(:)
   integer :: ncols, i
+  ! User answers for interactive mode
   character(len=256) :: answer
+  ! Selected column indices (1-based)
   integer :: xcol, ycol
+  ! Auto mode flag and arg buffer
   logical :: auto
   character(len=64) :: arg2
 
@@ -24,13 +36,16 @@ program csv_plotter
     stop 1
   end if
 
+  ! Read header line from CSV (first line)
   read(10,'(A)', iostat=i) header_line
   if (i /= 0) then
     write(*,'(A)') 'Error: cannot read header'
     stop 1
   end if
 
+  ! Split header into `names(:)` and set `ncols`
   call split_csv_header(header_line, names, ncols)
+  ! Check for optional second argument (--auto). If present, run non-interactively.
   call get_command_argument(2, arg2)
   auto = .false.
   if (len_trim(arg2) > 0) then
@@ -41,6 +56,7 @@ program csv_plotter
     write(*,'(I3,2X,A)') i, trim(names(i))
   end do
 
+  ! Determine X and Y columns; in `--auto` mode choose first two columns.
   if (auto) then
     xcol = 1
     if (ncols >= 2) then
@@ -50,6 +66,7 @@ program csv_plotter
     end if
     write(*,'(A,I0,A,I0)') 'Auto mode: using columns ', xcol, ' (X) and ', ycol, ' (Y)'
   else
+    ! Interactive selection: allow either numeric index or exact column name
     write(*,*) 'Enter X column (name or index):'
     read(*,'(A)') answer
     call select_column(answer, names, ncols, xcol)
@@ -68,6 +85,7 @@ program csv_plotter
   write(*,'(A)') 'Wrote output/tmpdata.dat and output/plot.plt. Run fortran/run_plot.sh to render PDF and PNG.'
 contains
 
+  ! Split a CSV header line into names(:). Splits on commas.
   subroutine split_csv_header(line, names, n)
     character(len=*), intent(in) :: line
     character(len=256), allocatable, intent(out) :: names(:)
@@ -77,6 +95,7 @@ contains
     lenl = len_trim(line)
     start = 1
     idx = 0
+    ! Scan for commas and extract tokens
     do
       pos = index(line(start:lenl), ',')
       if (pos == 0) then
@@ -94,6 +113,7 @@ contains
     n = idx
   end subroutine split_csv_header
 
+  ! Add a header `token` into the dynamic `names(:)` array at position `idx`.
   subroutine add_name(token, names, idx)
     character(len=*), intent(in) :: token
     character(len=256), allocatable, intent(inout) :: names(:)
@@ -108,6 +128,7 @@ contains
     names(idx) = trim(adjustl(token))
   end subroutine add_name
 
+  ! Resize the allocatable `names(:)` array to `newsize`.
   subroutine resize_names(names, newsize)
     character(len=256), allocatable, intent(inout) :: names(:)
     integer, intent(in) :: newsize
@@ -126,6 +147,7 @@ contains
   end subroutine resize_names
 
   subroutine select_column(answer, names, n, col)
+    ! Parse `answer` (either numeric index or exact column name) and return 1-based index in `col`.
     character(len=*), intent(in) :: answer
     character(len=256), intent(in) :: names(:)
     integer, intent(in) :: n
@@ -160,6 +182,9 @@ contains
     integer :: outu
     integer :: row
     logical :: okx, oky
+     ! Write two-column numeric data to `output/tmpdata.dat`.
+     ! - If X cannot be parsed as numeric, use row index as X (useful when X are dates or strings).
+     ! - Y must be numeric to produce a point; non-numeric Y rows are skipped.
     call execute_command_line('mkdir -p output')
     open(unit=20, file='output/tmpdata.dat', status='replace', action='write', iostat=ios)
     if (ios /= 0) then
@@ -183,6 +208,8 @@ contains
   end subroutine write_two_column_data
 
   subroutine get_token(line, idx, val, ok)
+    ! Extract the `idx`-th CSV token from `line` and attempt to read it as real into `val`.
+    ! Returns `ok=.true.` if parsing succeeded, `.false.` otherwise.
     character(len=*), intent(in) :: line
     integer, intent(in) :: idx
     real, intent(out) :: val
